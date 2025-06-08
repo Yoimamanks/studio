@@ -2,6 +2,7 @@
 
 /**
  * @fileOverview This file defines a Genkit flow for scraping content from a URL and answering questions about it using an LLM.
+ * THIS FLOW IS CURRENTLY NOT USED BY ChatInterface.tsx as it has been updated to use a Python Flask backend.
  *
  * - scrapeAndAnswer - The main function to initiate the scraping and question answering process.
  * - ScrapeAndAnswerInput - The input type for the scrapeAndAnswer function.
@@ -70,6 +71,9 @@ const scrapeAndAnswerFlow = ai.defineFlow({
   inputSchema: ScrapeAndAnswerInputSchema,
   outputSchema: ScrapeAndAnswerOutputSchema,
 }, async (input) => {
+  // Note: The 'llm' parameter from input is not directly used here to select a model for Genkit.
+  // Genkit's 'ai.generate' or prompt definition would determine the model.
+  // This flow would need to be more dynamic if model selection within Genkit was required.
   const {output} = await answerQuestionPrompt(input);
   return output!;
 });

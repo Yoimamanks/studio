@@ -16,14 +16,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { scrapeAndAnswer, type ScrapeAndAnswerInput, type ScrapeAndAnswerOutput } from "@/ai/flows/scrape-and-answer";
+// import { scrapeAndAnswer, type ScrapeAndAnswerInput, type ScrapeAndAnswerOutput } from "@/ai/flows/scrape-and-answer"; // Genkit flow removed
 import { useToast } from "@/hooks/use-toast";
 import { Globe, HelpCircle, Bot, Send, Loader2 as SpinnerIcon } from "lucide-react";
 
 const chatSchema = z.object({
   url: z.string().url({ message: "Please enter a valid URL." }),
   question: z.string().min(5, { message: "Question must be at least 5 characters." }),
-  llm: z.enum(["Gemini", "Ollama", "Deepseek"], {
+  llm: z.enum(["Gemini", "Ollama", "Deepseek"], { // These are the display values
     errorMap: () => ({ message: "Please select an LLM." }),
   }),
 });
@@ -48,21 +48,35 @@ export function ChatInterface() {
     setIsLoading(true);
     setAiResponse(null);
 
-    const input: ScrapeAndAnswerInput = {
+    const payload = {
       url: data.url,
       question: data.question,
-      llm: data.llm,
+      model: data.llm.toLowerCase(), // Send lowercase model key to Flask backend
     };
 
     try {
-      const result: ScrapeAndAnswerOutput = await scrapeAndAnswer(input);
+      // Assuming Flask server is running on port 5000 locally
+      const response = await fetch('http://localhost:5000/ask', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to process the request. Server returned an error." }));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
       setAiResponse(result.answer);
       toast({
         title: "AI Responded",
         description: "Your question has been answered.",
       });
     } catch (error: any) {
-      console.error("Error in scrapeAndAnswer flow:", error);
+      console.error("Error calling Flask backend:", error);
       const errorMessage = error.message || "An unexpected error occurred while processing your request.";
       setAiResponse(`An error occurred: ${errorMessage}\n\nPlease check the URL and your question, then try again. If the issue persists, the website might be blocking scraping attempts or the AI model might be temporarily unavailable.`);
       toast({
@@ -136,9 +150,9 @@ export function ChatInterface() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Gemini">Gemini (Google)</SelectItem>
-                        <SelectItem value="Ollama">Ollama (Local)</SelectItem>
-                        <SelectItem value="Deepseek">Deepseek</SelectItem>
+                        <SelectItem value="Gemini">Gemini (Google via OpenRouter)</SelectItem>
+                        <SelectItem value="Ollama">Ollama (Llama via OpenRouter)</SelectItem>
+                        <SelectItem value="Deepseek">Deepseek (via OpenRouter)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

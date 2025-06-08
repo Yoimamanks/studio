@@ -1,52 +1,75 @@
 from flask import Flask, request, jsonify
 import logging
+import os
+from dotenv import load_dotenv
+
+# Import your custom modules
 from scrape import scrape_website
 from parse import parse_content
-from api import query_ai_models
-from dotenv import load_dotenv
-import os
+from api import query_openrouter # Changed from query_ai_models
 
 load_dotenv()
 
 app = Flask(__name__)
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-@app.route('/scrape', methods=['POST'])
-def scrape():
+@app.route('/')
+def index():
+    return jsonify({"message": "ZScraper Flask AI Backend is running!"})
+
+@app.route('/ask', methods=['POST'])
+def ask_route():
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON payload"}), 400
+
     url = data.get('url')
+    question = data.get('question')
+    model_key = data.get('model') # e.g., 'gemini', 'ollama', 'deepseek'
 
     if not url:
         return jsonify({"error": "URL not provided"}), 400
-
-    html_content = scrape_website(url)
-
-    if not html_content:
-        return jsonify({"error": "Failed to scrape website"}), 500
-
-    parsed_data = parse_content(html_content)
-
-    return jsonify(parsed_data)
-
-@app.route('/ask', methods=['POST'])
-def ask():
-    data = request.get_json()
-    question = data.get('question')
-    content = data.get('content') # This should be the parsed data
-    model = data.get('model', 'gemini')  # Default model is gemini
-
     if not question:
         return jsonify({"error": "Question not provided"}), 400
-    if not content:
-        return jsonify({"error": "Content not provided"}), 400
+    if not model_key:
+        return jsonify({"error": "Model not selected"}), 400
 
-    # Assuming 'content' is the parsed data dictionary as returned by parse_content
-    # query_ai_models expects the parsed data and the model name
-    answer = query_ai_models(question, content, model)
+    logger.info(f"Received /ask request: URL='{url}', Question='{question[:50]}...', Model='{model_key}'")
 
-    return jsonify({"answer": answer})
+    try:
+        # Step 1: Scrape website
+        logger.info(f"Attempting to scrape URL: {url}")
+        html_content = scrape_website(url)
+        if html_content is None:
+            logger.error(f"Failed to scrape website: {url}")
+            return jsonify({"error": "Failed to scrape the website. The URL might be inaccessible or block scraping."}), 500
+        logger.info(f"Successfully scraped URL. Content length: {len(html_content)}")
+
+        # Step 2: Parse content
+        logger.info("Parsing scraped HTML content...")
+        parsed_data = parse_content(html_content)
+        if not parsed_data or (not parsed_data.get('paragraphs') and not parsed_data.get('titles')):
+             logger.warning(f"Parsing resulted in little to no content for URL: {url}")
+        # We proceed even if content is sparse, AI can state that.
+        logger.info("Successfully parsed HTML content.")
+
+
+        # Step 3: Query AI model via OpenRouter
+        logger.info(f"Querying AI model '{model_key}' via OpenRouter...")
+        # Ensure model_key is lowercase as expected by api.py's MODEL_CONFIG
+        ai_answer = query_openrouter(question, parsed_data, model_key.lower())
+        logger.info(f"Received answer from AI model '{model_key}'.")
+
+        return jsonify({"answer": ai_answer})
+
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in /ask route: {str(e)}", exc_info=True)
+        return jsonify({"error": f"An internal server error occurred: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    # Set host to '0.0.0.0' to be accessible externally if needed, e.g., in Docker
+    app.run(debug=os.environ.get("FLASK_DEBUG", "True").lower() == "true", host='0.0.0.0', port=port)
