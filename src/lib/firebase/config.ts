@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 
@@ -9,6 +10,9 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+// Log the configuration to help with debugging
+console.log("Firebase Config being used by the app:", firebaseConfig);
 
 let app: FirebaseApp;
 // Ensure Firebase is initialized only once
