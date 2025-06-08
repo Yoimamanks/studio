@@ -23,18 +23,15 @@ import { Globe, HelpCircle, Bot, Send, Loader2 as SpinnerIcon } from "lucide-rea
 const chatSchema = z.object({
   url: z.string().url({ message: "Please enter a valid URL." }),
   question: z.string().min(5, { message: "Question must be at least 5 characters." }),
-  llm: z.enum(["Gemini", "Ollama", "Deepseek"], { 
+  llm: z.enum(["Gemini", "Ollama", "Deepseek"], {
     errorMap: () => ({ message: "Please select an LLM." }),
   }),
 });
 
 type ChatFormValues = z.infer<typeof chatSchema>;
 
-// IMPORTANT: Use the IP address where your Flask server is accessible.
-// If your Flask server is running on the same machine as your browser accessing Next.js,
-// and you are accessing Next.js via localhost, then 'http://localhost:5000' might work.
-// Otherwise, use the network IP of the machine running Flask.
-const FLASK_BACKEND_URL = 'http://192.168.0.100:5000'; // Updated based on your screenshot
+// Use environment variable for Flask backend URL, with a fallback.
+const FLASK_BACKEND_URL = process.env.NEXT_PUBLIC_FLASK_BACKEND_URL || 'http://192.168.0.100:5000';
 
 export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
@@ -46,7 +43,7 @@ export function ChatInterface() {
     defaultValues: {
       url: "",
       question: "",
-      llm: "Gemini", 
+      llm: "Gemini",
     },
   });
 
@@ -57,11 +54,12 @@ export function ChatInterface() {
     const payload = {
       url: data.url,
       question: data.question,
-      model: data.llm.toLowerCase(), 
+      model: data.llm.toLowerCase(),
     };
 
     try {
-      const response = await fetch(`${FLASK_BACKEND_URL}/ask`, { // Use the configured URL
+      console.log(`Attempting to fetch from: ${FLASK_BACKEND_URL}/ask`);
+      const response = await fetch(`${FLASK_BACKEND_URL}/ask`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -70,8 +68,8 @@ export function ChatInterface() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to process the request. Server returned an error." }));
-        throw new Error(errorData.error || `Server error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ error: "Failed to parse error response from server." }));
+        throw new Error(errorData.error || `Server error: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
@@ -82,7 +80,16 @@ export function ChatInterface() {
       });
     } catch (error: any) {
       console.error("Error calling Flask backend:", error);
-      const errorMessage = error.message || "An unexpected error occurred while processing your request.";
+      let errorMessage = "An unexpected error occurred while processing your request.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      // Provide more specific feedback for network errors
+      if (errorMessage.toLowerCase().includes('failed to fetch')) {
+        errorMessage = `Failed to connect to the AI backend at ${FLASK_BACKEND_URL}. Please ensure the backend server is running and accessible.`;
+      }
+
       setAiResponse(`An error occurred: ${errorMessage}\n\nPlease check the URL and your question, then try again. If the issue persists, the website might be blocking scraping attempts or the AI model might be temporarily unavailable.`);
       toast({
         title: "Processing Error",
@@ -204,3 +211,5 @@ export function ChatInterface() {
     </div>
   );
 }
+
+    
