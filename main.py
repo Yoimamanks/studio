@@ -2,15 +2,17 @@ from flask import Flask, request, jsonify
 import logging
 import os
 from dotenv import load_dotenv
+from flask_cors import CORS # Import CORS
 
 # Import your custom modules
 from scrape import scrape_website
 from parse import parse_content
-from api import query_openrouter # Changed from query_ai_models
+from api import query_openrouter
 
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app) # Enable CORS for all routes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
