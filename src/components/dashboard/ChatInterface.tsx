@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -16,19 +17,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-// import { scrapeAndAnswer, type ScrapeAndAnswerInput, type ScrapeAndAnswerOutput } from "@/ai/flows/scrape-and-answer"; // Genkit flow removed
 import { useToast } from "@/hooks/use-toast";
 import { Globe, HelpCircle, Bot, Send, Loader2 as SpinnerIcon } from "lucide-react";
 
 const chatSchema = z.object({
   url: z.string().url({ message: "Please enter a valid URL." }),
   question: z.string().min(5, { message: "Question must be at least 5 characters." }),
-  llm: z.enum(["Gemini", "Ollama", "Deepseek"], { // These are the display values
+  llm: z.enum(["Gemini", "Ollama", "Deepseek"], { 
     errorMap: () => ({ message: "Please select an LLM." }),
   }),
 });
 
 type ChatFormValues = z.infer<typeof chatSchema>;
+
+// IMPORTANT: Use the IP address where your Flask server is accessible.
+// If your Flask server is running on the same machine as your browser accessing Next.js,
+// and you are accessing Next.js via localhost, then 'http://localhost:5000' might work.
+// Otherwise, use the network IP of the machine running Flask.
+const FLASK_BACKEND_URL = 'http://192.168.0.100:5000'; // Updated based on your screenshot
 
 export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
@@ -51,12 +57,11 @@ export function ChatInterface() {
     const payload = {
       url: data.url,
       question: data.question,
-      model: data.llm.toLowerCase(), // Send lowercase model key to Flask backend
+      model: data.llm.toLowerCase(), 
     };
 
     try {
-      // Assuming Flask server is running on port 5000 locally
-      const response = await fetch('http://localhost:5000/ask', {
+      const response = await fetch(`${FLASK_BACKEND_URL}/ask`, { // Use the configured URL
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
