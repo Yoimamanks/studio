@@ -30,7 +30,6 @@ const chatSchema = z.object({
 
 type ChatFormValues = z.infer<typeof chatSchema>;
 
-// Use environment variable for Flask backend URL, with a fallback.
 const FLASK_BACKEND_URL = process.env.NEXT_PUBLIC_FLASK_BACKEND_URL || 'http://192.168.0.100:5000';
 
 export function ChatInterface() {
@@ -79,21 +78,26 @@ export function ChatInterface() {
         description: "Your question has been answered.",
       });
     } catch (error: any) {
-      console.error("Error calling Flask backend:", error);
-      let errorMessage = "An unexpected error occurred while processing your request.";
+      console.error("Full error object from fetch:", error);
+      
+      let detailedErrorMessage = "An unexpected error occurred while processing your request.";
       if (error instanceof Error) {
-        errorMessage = error.message;
+        detailedErrorMessage = error.message; // This would likely be "Failed to fetch"
+      } else if (typeof error === 'string') {
+        detailedErrorMessage = error;
+      } else if (error && typeof error.toString === 'function') {
+        detailedErrorMessage = error.toString();
       }
       
-      // Provide more specific feedback for network errors
-      if (errorMessage.toLowerCase().includes('failed to fetch')) {
-        errorMessage = `Failed to connect to the AI backend at ${FLASK_BACKEND_URL}. Please ensure the backend server is running and accessible.`;
+      let userFriendlyMessage = detailedErrorMessage;
+      if (detailedErrorMessage.toLowerCase().includes('failed to fetch')) {
+        userFriendlyMessage = `Failed to connect to the AI backend at ${FLASK_BACKEND_URL}. Please ensure the backend server is running and accessible. Check network connectivity, firewalls, and the server logs. Raw error: ${error.message || detailedErrorMessage}`;
       }
 
-      setAiResponse(`An error occurred: ${errorMessage}\n\nPlease check the URL and your question, then try again. If the issue persists, the website might be blocking scraping attempts or the AI model might be temporarily unavailable.`);
+      setAiResponse(`An error occurred: ${userFriendlyMessage}`);
       toast({
         title: "Processing Error",
-        description: errorMessage,
+        description: userFriendlyMessage,
         variant: "destructive",
       });
     } finally {
@@ -211,5 +215,3 @@ export function ChatInterface() {
     </div>
   );
 }
-
-    
